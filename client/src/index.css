@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables for responsive design */
+:root {
+  /* Base sizes */
+  --base-font-size: 16px;
+  --base-line-height: 1.5;
+  --base-spacing: 16px;
+  
+  /* Custom properties for viewport heights (fixed in JS for iOS) */
+  --vh: 1vh;
+  
+  /* Game scaling factors */
+  --game-ui-scale: 1;
+  --content-scale: 1;
+  --touch-target-min-size: 44px;
+}
+
+/* Adjust variables for small mobile screens */
+@media (max-width: 360px) {
+  :root {
+    --base-font-size: 14px;
+    --base-spacing: 12px;
+    --game-ui-scale: 0.85;
+    --content-scale: 0.9;
+    --touch-target-min-size: 40px;
+  }
+}
+
+/* Medium mobile screens */
+@media (min-width: 361px) and (max-width: 480px) {
+  :root {
+    --base-font-size: 15px;
+    --game-ui-scale: 0.9;
+    --content-scale: 0.95;
+  }
+}
+
+/* Tablet and landscape phones */
+@media (min-width: 640px) and (max-width: 1023px) {
+  :root {
+    --game-ui-scale: 1;
+    --content-scale: 1;
+  }
+}
+
+/* Ensure minimum touch target size for better mobile usability */
+.touch-target {
+  min-width: var(--touch-target-min-size);
+  min-height: var(--touch-target-min-size);
+}
+
+/* Fix for mobile 100vh issue (iOS Safari) */
+.full-screen {
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+}
+
+/* Game UI scaling */
+.game-ui {
+  transform: scale(var(--game-ui-scale));
+  transform-origin: center center;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  position: fixed;
+}
+
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  /* Prevent unwanted scrolling and zooming */
+  html, body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+  
+  /* Improve touch button size and readability */
+  button, 
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Make sure elements take up proper space on mobile */
+  .touch-UI-element {
+    transform: scale(1.1);
+  }
+  
+  /* Ensure text is readable on mobile */
+  p, h1, h2, h3, h4, h5, h6 {
+    text-shadow: 0px 1px 1px rgba(0, 0, 0, 0.2);
+  }
+}
