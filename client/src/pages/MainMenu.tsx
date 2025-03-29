@@ -50,7 +50,7 @@ const MainMenu: React.FC = () => {
       <header className="p-3 sm:p-4 flex flex-col sm:flex-row justify-between items-center">
         <div className="flex items-center gap-2 mb-2 sm:mb-0">
           <FireIcon className="h-7 w-7 sm:h-8 sm:w-8 text-red-500" />
-          <h1 className="text-xl sm:text-2xl font-bold">Fire Safety Game</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">APULA Fire Safety Game</h1>
         </div>
         
         <div className="flex items-center gap-2">
