@@ -15,7 +15,7 @@ const QuizPage: React.FC = () => {
       <header className="p-3 sm:p-4 flex flex-col sm:flex-row justify-between items-center gap-2">
         <div className="flex items-center gap-2">
           <FireIcon className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
-          <h1 className="text-xl sm:text-2xl font-bold">APULA Fire Safety Quiz</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Fire Safety Quiz</h1>
         </div>
         
         <Link to="/safety-guide" className="w-full sm:w-auto">

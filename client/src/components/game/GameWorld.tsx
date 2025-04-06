@@ -36,7 +36,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
     position: [number, number, number];
     direction: [number, number, number];
   } | null>(null);
-  
+
   const {
     player,
     levels,
@@ -45,36 +45,37 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
     extinguishFire,
     collectItem,
     updatePlayerOxygen,
+    updatePlayerHealth, // Added health update function
   } = useFireSafetyGame();
-  
+
   // Find current level data
   const level = levels.find(l => l.id === currentLevel);
-  
+
   // COMPLETELY REBUILT movement system from scratch
   useEffect(() => {
     if (!level) return;
-    
+
     console.log("Character position:", player.position);
     console.log("Level dimensions:", level.mapWidth, level.mapHeight);
-    
+
     // This function will convert user input to an intended movement direction
     // and pass it to the movement handler
     const handleKeyDown = (e: KeyboardEvent) => {
       console.log("Key pressed:", e.code);
-      
+
       // Disable default scrolling behavior for arrow keys
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
         e.preventDefault();
       }
-      
+
       const speed = 0.5; // Movement speed
       let dx = 0; // Change in X
       let dy = 0; // Change in Y
-      
+
       // IMPORTANT: We're using a top-down 2D coordinate system:
       // +X = RIGHT, -X = LEFT
       // +Y = DOWN, -Y = UP
-      
+
       // THIS IS CRITICAL: Our game and THREE.js coordinates are:
       // Game (X,Y) → THREE.js (X,Z)
       // Since we're using a top-down view, we need to:
@@ -82,7 +83,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
       // - S/Down should INCREASE Y (move DOWN on the screen)
       // - A/Left should DECREASE X (move LEFT on the screen)
       // - D/Right should INCREASE X (move RIGHT on the screen)
-      
+
       // INVERSED DIRECTION MAPPING based on screen orientation
       // This is the key fix: inverting the coordinate changes to match what the user sees on screen
       switch(e.code) {
@@ -92,28 +93,28 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
           console.log("UP key pressed - moving toward TOP of screen");
           dy = -speed; // Move up on screen (decrease Y coordinate)
           break;
-        
+
         case 'KeyS':
         case 'ArrowDown':
           // Move DOWN on screen = INCREASE Z in Three.js (our Y in game logic)
           console.log("DOWN key pressed - moving toward BOTTOM of screen");
           dy = speed; // Move down on screen (increase Y coordinate)
           break;
-          
+
         case 'KeyA':
         case 'ArrowLeft':
           // Move LEFT on screen = DECREASE X in Three.js (our X in game logic)
           console.log("LEFT key pressed - moving toward LEFT side of screen");
           dx = -speed; // Move left on screen (decrease X coordinate)
           break;
-          
+
         case 'KeyD':
         case 'ArrowRight':
           // Move RIGHT on screen = INCREASE X in Three.js (our X in game logic)
           console.log("RIGHT key pressed - moving toward RIGHT side of screen"); 
           dx = speed; // Move right on screen (increase X coordinate)
           break;
-          
+
         case 'KeyF': // New key for fire extinguisher
           console.log("EXTINGUISHER key pressed");
           if (player.inventory.extinguishers > 0) {
@@ -121,19 +122,19 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
             const activeHazards = level.hazards.filter(h => !h.extinguished);
             let closestHazard = null;
             let minDistance = Infinity;
-            
+
             for (const hazard of activeHazards) {
               const distance = Math.sqrt(
                 Math.pow(player.position.x - hazard.x, 2) + 
                 Math.pow(player.position.y - hazard.y, 2)
               );
-              
+
               if (distance < 3 && distance < minDistance) {
                 minDistance = distance;
                 closestHazard = hazard;
               }
             }
-            
+
             if (closestHazard) {
               // Calculate direction vector from player to fire
               const dirX = closestHazard.x - player.position.x;
@@ -145,25 +146,25 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
                 0, // Y direction in 3D space
                 dirY / length
               ];
-              
+
               // Set extinguisher effect
               setExtinguisherEffect({
                 active: true, 
                 position: [player.position.x, 0.5, player.position.y],
                 direction: normalizedDir
               });
-              
+
               // Show effect for 1 second
               setTimeout(() => {
                 setExtinguisherEffect(null);
               }, 1000);
-              
+
               // Extinguish the fire
               extinguishFire(closestHazard.id);
             }
           }
           break;
-          
+
         case 'Space':
         case 'KeyE':
           // Interact with nearby items
@@ -181,22 +182,22 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
           }
           break;
       }
-      
+
       // Apply movement if direction keys were pressed
       if (dx !== 0 || dy !== 0) {
         console.log(`Moving player by dx=${dx}, dy=${dy}`);
         console.log("BEFORE movement, player at:", player.position);
-        
+
         movePlayer(dx, dy);
         setIsMoving(true);
-        
+
         // Added a small delay to check the position after movement
         setTimeout(() => {
           console.log("AFTER movement, player at:", player.position);
         }, 100);
       }
     };
-    
+
     const handleKeyUp = (e: KeyboardEvent) => {
       // Stop character movement animation when keys are released
       if (['KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyD', 'ArrowRight'].includes(e.code)) {
@@ -204,47 +205,50 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
         setIsMoving(false);
       }
     };
-    
+
     // Register event listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    
+
     // Clean up event listeners when component unmounts
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [level, player.position, movePlayer, collectItem]);
-  
+
   // Update oxygen levels based on proximity to fires
   useEffect(() => {
     if (!level) return;
-    
+
     const updateInterval = setInterval(() => {
       // Calculate proximity to active fires
       const activeHazards = level.hazards.filter(h => !h.extinguished);
       let totalFireProximity = 0;
-      
+
       for (const hazard of activeHazards) {
         const distance = Math.sqrt(
           Math.pow(player.position.x - hazard.x, 2) + 
           Math.pow(player.position.y - hazard.y, 2)
         );
-        
-        // If close to a fire, decrease oxygen faster
-        if (distance < 3) {
+
+        // If very close to fire, decrease health and oxygen faster
+        if (distance < 1.2) {
+          // Direct fire contact causes health damage
+          updatePlayerHealth(-2);
+        } else if (distance < 3) {
           totalFireProximity += (3 - distance) * hazard.size;
         }
       }
-      
+
       // Calculate oxygen change rate
       // Far from fires: slow recovery, near fires: fast depletion
       let oxygenChange = 0;
-      
+
       if (totalFireProximity > 0) {
         // Decrease oxygen based on fire proximity
         oxygenChange = -totalFireProximity * 2;
-        
+
         // If wearing a mask, reduce the oxygen depletion rate
         if (player.inventory.masks > 0) {
           oxygenChange = oxygenChange / 2;
@@ -253,15 +257,15 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
         // Slowly recover oxygen when away from fires
         oxygenChange = 1;
       }
-      
+
       updatePlayerOxygen(oxygenChange);
     }, 1000);
-    
+
     return () => clearInterval(updateInterval);
-  }, [level, player.position, player.inventory.masks, updatePlayerOxygen]);
-  
+  }, [level, player.position, player.inventory.masks, updatePlayerOxygen, updatePlayerHealth]); // Added updatePlayerHealth to dependencies
+
   if (!level) return null;
-  
+
   return (
     <div className="w-full h-full relative">
       <Canvas shadows>
@@ -275,7 +279,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
           up={[0, 0, -1]} // This ensures "up" in the scene is actually "up" on screen
           rotation={[-Math.PI / 2, 0, 0]} // Look straight down
         />
-        
+
         {/* Enhanced lighting for better visibility */}
         <ambientLight intensity={0.8} />
         <directionalLight
@@ -289,7 +293,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
           args={["#bbeeff", "#ffe0bb", 0.5]} 
           position={[level.mapWidth / 2, 50, level.mapHeight / 2]} 
         />
-        
+
         {/* Floor - properly centered to align with gameplay grid */}
         <group position={[level.mapWidth / 2, 0, level.mapHeight / 2]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -306,24 +310,24 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
             <meshBasicMaterial color="blue" opacity={0.5} transparent />
           </mesh>
         </group>
-        
+
         {/* Walls and obstacles */}
         {level.obstacles.map((obstacle, index) => (
           <mesh
             key={index}
             position={[
               obstacle.x + obstacle.width / 2,
-              0.5,
+              1.0, // Increased height to match character
               obstacle.y + obstacle.height / 2,
             ]}
             castShadow
             receiveShadow
           >
-            <boxGeometry args={[obstacle.width, 1, obstacle.height]} />
+            <boxGeometry args={[obstacle.width, 2.0, obstacle.height]} /> {/* Taller walls */}
             <meshStandardMaterial color="#555555" />
           </mesh>
         ))}
-        
+
         {/* Exit marker - more visible */}
         <group position={[level.exitPosition.x, 0.1, level.exitPosition.y]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -343,7 +347,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
             EXIT
           </Text>
         </group>
-        
+
         {/* Collectible items */}
         {level.collectibles.filter(item => !item.collected).map((item) => (
           <group 
@@ -395,7 +399,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
             </Text>
           </group>
         ))}
-        
+
         {/* Fire hazards */}
         {level.hazards.map((hazard) => (
           <FireHazard
@@ -417,26 +421,26 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
                   0, // Y direction in 3D space
                   dirY / length
                 ];
-                
+
                 // Set extinguisher effect with player position and direction to fire
                 setExtinguisherEffect({
                   active: true, 
                   position: [player.position.x, 0.5, player.position.y],
                   direction: normalizedDir
                 });
-                
+
                 // Show effect for 1 second
                 setTimeout(() => {
                   setExtinguisherEffect(null);
                 }, 1000);
-                
+
                 // Extinguish the fire
                 extinguishFire(hazard.id);
               }
             }}
           />
         ))}
-        
+
         {/* Extinguisher particle effect */}
         {extinguisherEffect && extinguisherEffect.active && (
           <group position={extinguisherEffect.position}>
@@ -453,10 +457,10 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
             />
           </group>
         )}
-        
+
         {/* Player character */}
         <Character position={player.position} isMoving={isMoving} />
-        
+
         {/* Limited controls for camera adjustment */}
         <OrbitControls
           enableZoom={true}
@@ -467,7 +471,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
           target={[level.mapWidth / 2, 0, level.mapHeight / 2]}
         />
       </Canvas>
-      
+
       {/* Heads-up display */}
       <HUD />
     </div>

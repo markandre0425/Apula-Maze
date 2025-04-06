@@ -39,7 +39,7 @@ const Character: React.FC<CharacterProps> = ({ position, isMoving }) => {
     >
       {/* Character body */}
       <mesh castShadow>
-        <boxGeometry args={[0.8, 1.2, 0.8]} />
+        <boxGeometry args={[0.8, 1.2, 0.8]} /> {/* Smaller collision box */}
         <meshStandardMaterial color="#4287f5" emissive="#2255dd" emissiveIntensity={0.3} />
       </mesh>
       
