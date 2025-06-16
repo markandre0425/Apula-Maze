@@ -78,6 +78,10 @@ interface FireSafetyGameState {
   firesExtinguished: number;
   itemsCollected: number;
 
+  // Notification system for extinguisher respawn
+  showNotification: boolean;
+  notificationMessage: string;
+
   // Actions
   startGame: (levelId: number) => void;
   pauseGame: () => void;
@@ -96,6 +100,7 @@ interface FireSafetyGameState {
   updatePlayerOxygen: (amount: number) => void;
   unlockNextLevel: () => void;
   getHighScores: (levelId: number) => LevelScore[];
+  showExtinguisherNotification: (message: string) => void;
 }
 
 export const useFireSafetyGame = create<FireSafetyGameState>()(
@@ -122,6 +127,10 @@ export const useFireSafetyGame = create<FireSafetyGameState>()(
     highScores: [],
     firesExtinguished: 0,
     itemsCollected: 0,
+
+    // Notification system for extinguisher respawn
+    showNotification: false,
+    notificationMessage: "",
 
     startGame: (levelId) => {
       const level = get().levels.find(l => l.id === levelId);
@@ -221,9 +230,43 @@ export const useFireSafetyGame = create<FireSafetyGameState>()(
         Math.pow(newY - level.exitPosition.y, 2)
       );
 
-      // Complete level if close enough to exit
+      // Check if close enough to exit
       if (distanceToExit < 1.5) {
         console.log("REACHED EXIT!");
+        
+        // Check if all fires are extinguished before allowing level completion
+        const activeHazards = level.hazards.filter(h => !h.extinguished);
+        
+        if (activeHazards.length > 0) {
+          // Prevent level completion and show warning
+          console.log(`Cannot exit! ${activeHazards.length} fires still burning!`);
+          
+          // Show visual feedback
+          const { playHit } = useAudio.getState();
+          playHit(); // Play hit sound as warning
+          
+          // Show warning message using the existing tip system
+          set({
+            showTipPopup: true,
+            currentTip: 999 // Special ID for fire warning
+          });
+          
+          // Auto-hide the warning after 4 seconds
+          setTimeout(() => {
+            const currentState = get();
+            if (currentState.currentTip === 999) {
+              set({ 
+                showTipPopup: false,
+                currentTip: null 
+              });
+            }
+          }, 4000);
+          
+          return; // Don't complete the level
+        }
+        
+        // All fires are extinguished, allow level completion
+        console.log("All fires extinguished! Level complete!");
         get().completeLevel();
       }
     },
@@ -317,6 +360,112 @@ export const useFireSafetyGame = create<FireSafetyGameState>()(
         // Award more points for larger fires
         const sizeBonus = Math.floor(fire.size * 50);
         const scoreIncrease = 100 + sizeBonus;
+
+        // Generate a new extinguisher at a random location
+        const level = updatedLevels[levelIndex];
+        const spawnNewExtinguisher = () => {
+          let attempts = 0;
+          let newPosition;
+          
+          // Try to find a valid spawn position (not on obstacles, hazards, or other items)
+          do {
+            newPosition = {
+              x: Math.floor(Math.random() * (level.mapWidth - 2)) + 1,
+              y: Math.floor(Math.random() * (level.mapHeight - 2)) + 1
+            };
+            attempts++;
+          } while (attempts < 50 && isPositionOccupied(newPosition, level));
+          
+          // If we found a valid position, spawn the extinguisher
+          if (attempts < 50) {
+            const newExtinguisher: CollectibleItem = {
+              id: `ext_respawn_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+              x: newPosition.x,
+              y: newPosition.y,
+              type: "extinguisher",
+              collected: false
+            };
+            
+            level.collectibles.push(newExtinguisher);
+            console.log(`New extinguisher spawned at (${newPosition.x}, ${newPosition.y})`);
+            
+            // Show notification to player
+            get().showExtinguisherNotification(`🧯 New fire extinguisher spawned at (${newPosition.x}, ${newPosition.y})!`);
+            
+            // Auto-hide notification after 3 seconds
+            setTimeout(() => {
+              set({ 
+                showNotification: false,
+                notificationMessage: "" 
+              });
+            }, 3000);
+          } else {
+            console.log("Failed to find valid spawn position for new extinguisher");
+            
+            // Show fallback notification
+            get().showExtinguisherNotification("🧯 New fire extinguisher spawned somewhere on the map!");
+            
+            // Auto-hide notification after 3 seconds
+            setTimeout(() => {
+              set({ 
+                showNotification: false,
+                notificationMessage: "" 
+              });
+            }, 3000);
+          }
+        };
+
+        // Helper function to check if a position is occupied
+        const isPositionOccupied = (pos: {x: number, y: number}, level: any) => {
+          // Check if position is too close to player
+          const playerDistance = Math.sqrt(
+            Math.pow(player.position.x - pos.x, 2) + 
+            Math.pow(player.position.y - pos.y, 2)
+          );
+          if (playerDistance < 2) return true;
+
+          // Check obstacles
+          for (const obstacle of level.obstacles) {
+            if (pos.x >= obstacle.x && pos.x < obstacle.x + obstacle.width &&
+                pos.y >= obstacle.y && pos.y < obstacle.y + obstacle.height) {
+              return true;
+            }
+          }
+
+          // Check active fires
+          for (const hazard of level.hazards) {
+            if (!hazard.extinguished) {
+              const hazardDistance = Math.sqrt(
+                Math.pow(hazard.x - pos.x, 2) + 
+                Math.pow(hazard.y - pos.y, 2)
+              );
+              if (hazardDistance < 2) return true;
+            }
+          }
+
+          // Check existing collectibles
+          for (const collectible of level.collectibles) {
+            if (!collectible.collected) {
+              const collectibleDistance = Math.sqrt(
+                Math.pow(collectible.x - pos.x, 2) + 
+                Math.pow(collectible.y - pos.y, 2)
+              );
+              if (collectibleDistance < 1.5) return true;
+            }
+          }
+
+          // Check exit position
+          const exitDistance = Math.sqrt(
+            Math.pow(level.exitPosition.x - pos.x, 2) + 
+            Math.pow(level.exitPosition.y - pos.y, 2)
+          );
+          if (exitDistance < 2) return true;
+
+          return false;
+        };
+
+        // Spawn new extinguisher
+        spawnNewExtinguisher();
 
         set({
           levels: updatedLevels,
@@ -525,6 +674,13 @@ export const useFireSafetyGame = create<FireSafetyGameState>()(
       return highScores
         .filter(score => score.levelId === levelId)
         .sort((a, b) => b.score - a.score);
+    },
+
+    showExtinguisherNotification: (message: string) => {
+      set({
+        showNotification: true,
+        notificationMessage: message,
+      });
     },
   }))
 );

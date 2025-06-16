@@ -121,13 +121,37 @@ const ParticleSystem: React.FC<ParticleProps> = ({
         x += Math.sin(Date.now() * 0.001 + i) * 0.01;
         z += Math.cos(Date.now() * 0.001 + i) * 0.01;
       } else if (type === 'extinguish') {
-        y += particles.speeds[i] * 0.8;
-        x += (Math.random() - 0.5) * 0.03;
-        z += (Math.random() - 0.5) * 0.03;
+        // Enhanced extinguisher spray behavior
+        const time = Date.now() * 0.001;
+        const particleAge = particles.lifetimes[i];
+        
+        // Forward spray movement (assuming spray goes in positive Z direction)
+        y += particles.speeds[i] * 0.3; // Slight upward movement
+        z += particles.speeds[i] * 4; // Main forward spray
+        
+        // Add realistic spray spread and turbulence
+        const spread = particleAge * 0.5; // Increase spread over time
+        x += Math.sin(time + i) * 0.02 * spread;
+        y += Math.cos(time * 1.5 + i) * 0.01 * spread;
+        
+        // Add gravity effect
+        y -= particles.speeds[i] * particleAge * 0.5;
+        
+        // Update particle age
+        particles.lifetimes[i] += delta * 2;
       }
       
-      // Check if particle should reset (based on height)
-      if (y > scale * 2) {
+      // Check if particle should reset (based on type and bounds)
+      if (type === 'extinguish') {
+        // Reset extinguisher particles based on distance or lifetime
+        const distance = Math.sqrt(x * x + y * y + z * z);
+        if (distance > scale * 3 || particles.lifetimes[i] > 1) {
+          x = (Math.random() - 0.5) * 0.1;
+          y = Math.random() * 0.1;
+          z = (Math.random() - 0.5) * 0.1;
+          particles.lifetimes[i] = 0; // Reset lifetime
+        }
+      } else if (y > scale * 2) {
         x = (Math.random() - 0.5) * scale;
         y = Math.random() * 0.2; // Start near bottom
         z = (Math.random() - 0.5) * scale;

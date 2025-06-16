@@ -8,6 +8,7 @@ import ParticleSystem from "./ParticleSystem";
 import { useFireSafetyGame } from "@/lib/stores/useFireSafetyGame";
 import HUD from "./HUD";
 import { useKeyboardControls } from "@react-three/drei";
+import CollectibleItem from './CollectibleItem';
 
 enum Controls {
   forward = 'forward',
@@ -232,17 +233,21 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
           Math.pow(player.position.y - hazard.y, 2)
         );
 
-        // If very close to fire, decrease health and oxygen faster
-        if (distance < 1.2) {
-          // Direct fire contact causes health damage
-          updatePlayerHealth(-2);
+        // Enhanced damage zones
+        if (distance < 1.0) {
+          // Critical zone - severe damage
+          updatePlayerHealth(-3);
+        } else if (distance < 2.0) {
+          // Danger zone - moderate damage
+          updatePlayerHealth(-1);
+          totalFireProximity += (2 - distance) * hazard.size;
         } else if (distance < 3) {
+          // Warning zone - minor damage
           totalFireProximity += (3 - distance) * hazard.size;
         }
       }
 
       // Calculate oxygen change rate
-      // Far from fires: slow recovery, near fires: fast depletion
       let oxygenChange = 0;
 
       if (totalFireProximity > 0) {
@@ -262,7 +267,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
     }, 1000);
 
     return () => clearInterval(updateInterval);
-  }, [level, player.position, player.inventory.masks, updatePlayerOxygen, updatePlayerHealth]); // Added updatePlayerHealth to dependencies
+  }, [level, player.position, player.inventory.masks, updatePlayerOxygen, updatePlayerHealth]);
 
   if (!level) return null;
 
@@ -328,31 +333,20 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
           </mesh>
         ))}
 
-        {/* Exit marker - more visible */}
-        <group position={[level.exitPosition.x, 0.1, level.exitPosition.y]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <planeGeometry args={[2, 2]} />
-            <meshStandardMaterial color="#00aa00" emissive="#00aa00" emissiveIntensity={0.5} />
-          </mesh>
-          <Text
-            position={[0, 0.7, 0]}
-            color="#ffffff"
-            fontSize={0.5}
-            fontWeight="bold"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.1}
-            outlineColor="#006600"
-          >
-            EXIT
-          </Text>
-        </group>
+        {/* Exit marker */}
+        <CollectibleItem
+          type="exit"
+          position={[level.exitPosition.x, 0, level.exitPosition.y]}
+          onClick={() => {}}
+          canExit={level.hazards.every(h => h.extinguished)}
+        />
 
         {/* Collectible items */}
         {level.collectibles.filter(item => !item.collected).map((item) => (
-          <group 
-            key={item.id} 
-            position={[item.x, 0.2, item.y]}
+          <CollectibleItem
+            key={item.id}
+            type={item.type}
+            position={[item.x, 0.5, item.y]}
             onClick={() => {
               const distance = Math.sqrt(
                 Math.pow(player.position.x - item.x, 2) + 
@@ -362,42 +356,7 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
                 collectItem(item.id);
               }
             }}
-          >
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-              <planeGeometry args={[1, 1]} />
-              <meshStandardMaterial 
-                color={
-                  item.type === "extinguisher" ? "#ff0000" :
-                  item.type === "mask" ? "#0055ff" :
-                  item.type === "tip" ? "#ffcc00" : "#ffffff"
-                }
-                emissive={
-                  item.type === "extinguisher" ? "#ff0000" :
-                  item.type === "mask" ? "#0055ff" :
-                  item.type === "tip" ? "#ffcc00" : "#ffffff"
-                }
-                emissiveIntensity={0.3}
-              />
-            </mesh>
-            <Text
-              position={[0, 0.7, 0]}
-              color="#ffffff"
-              fontSize={0.35}
-              fontWeight="bold"
-              anchorX="center"
-              anchorY="middle"
-              outlineWidth={0.1}
-              outlineColor={
-                item.type === "extinguisher" ? "#882200" :
-                item.type === "mask" ? "#003388" :
-                item.type === "tip" ? "#885500" : "#333333"
-              }
-            >
-              {item.type === "extinguisher" ? "Extinguisher" :
-               item.type === "mask" ? "Mask" :
-               item.type === "tip" ? "Safety Tip" : "Item"}
-            </Text>
-          </group>
+          />
         ))}
 
         {/* Fire hazards */}
@@ -459,7 +418,13 @@ const GameWorld: React.FC<GameWorldProps> = ({ levelId }) => {
         )}
 
         {/* Player character */}
-        <Character position={player.position} isMoving={isMoving} />
+        <Character 
+          position={player.position} 
+          isMoving={isMoving} 
+          isUsingExtinguisher={extinguisherEffect?.active || false}
+          extinguisherDirection={extinguisherEffect?.direction}
+          hasExtinguisher={player.inventory.extinguishers > 0}
+        />
 
         {/* Limited controls for camera adjustment */}
         <OrbitControls

@@ -1,6 +1,25 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { createServer } from "net";
+
+// Function to find an available port
+function findAvailablePort(startPort: number): Promise<number> {
+  return new Promise((resolve) => {
+    const server = createServer();
+    
+    server.on('error', () => {
+      // Port is in use, try the next one
+      resolve(findAvailablePort(startPort + 1));
+    });
+    
+    server.listen(startPort, () => {
+      server.close(() => {
+        resolve(startPort);
+      });
+    });
+  });
+}
 
 const app = express();
 app.use(express.json());
@@ -47,23 +66,22 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
-  const port = 5000;
+  // Try to use port 5000, but find an available one if it's in use
+  const preferredPort = 5000;
+  const port = await findAvailablePort(preferredPort);
+  
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host: "127.0.0.1",
+    // reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`serving on port ${port}${port !== preferredPort ? ' (default port 5000 was unavailable)' : ''}`);
   });
 })();
+
