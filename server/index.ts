@@ -72,16 +72,25 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Try to use port 5000, but find an available one if it's in use
+  // On Render (and most PaaS), the platform provides PORT via env var.
+  // Prefer PORT from env; otherwise, for local dev, try 5000 and find an available one.
   const preferredPort = 5000;
-  const port = await findAvailablePort(preferredPort);
+  const envPort = process.env.PORT ? Number(process.env.PORT) : undefined;
+  const port = Number.isFinite(envPort)
+    ? (envPort as number)
+    : await findAvailablePort(preferredPort);
   
   server.listen({
     port,
     host: "0.0.0.0",
     // reusePort: true,
   }, () => {
-    log(`serving on port ${port}${port !== preferredPort ? ' (default port 5000 was unavailable)' : ''}`);
+    const portNote = envPort
+      ? " (using PORT from environment)"
+      : port !== preferredPort
+        ? " (default port 5000 was unavailable)"
+        : "";
+    log(`serving on port ${port}${portNote}`);
   });
 })();
 

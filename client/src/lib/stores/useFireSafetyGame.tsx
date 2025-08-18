@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { useAudio } from "./useAudio";
 import { levels } from "../data/levels";
+import { safetyTips } from "../data/safetyTips";
 
 export type GamePhase = "menu" | "playing" | "paused" | "levelComplete" | "gameOver";
 
@@ -387,10 +388,10 @@ export const useFireSafetyGame = create<FireSafetyGameState>()(
             };
             
             level.collectibles.push(newExtinguisher);
-            console.log(`New extinguisher spawned at (${newPosition.x}, ${newPosition.y})`);
-            
-            // Show notification to player
-            get().showExtinguisherNotification(`🧯 New fire extinguisher spawned at (${newPosition.x}, ${newPosition.y})!`);
+            console.log("New extinguisher spawned");
+
+            // Show notification to player (no coordinates)
+            get().showExtinguisherNotification("🧯 A Fire Extinguisher has randomly spawned in the map");
             
             // Auto-hide notification after 3 seconds
             setTimeout(() => {
@@ -401,9 +402,9 @@ export const useFireSafetyGame = create<FireSafetyGameState>()(
             }, 3000);
           } else {
             console.log("Failed to find valid spawn position for new extinguisher");
-            
-            // Show fallback notification
-            get().showExtinguisherNotification("🧯 New fire extinguisher spawned somewhere on the map!");
+
+            // Show fallback notification (no coordinates)
+            get().showExtinguisherNotification("🧯 A Fire Extinguisher has randomly spawned in the map");
             
             // Auto-hide notification after 3 seconds
             setTimeout(() => {
@@ -572,6 +573,109 @@ export const useFireSafetyGame = create<FireSafetyGameState>()(
       if (timeRemaining <= 0) {
         get().gameOver();
         return;
+      }
+
+      // Occasionally spawn a random safety tip on the map
+      // Spawn every ~20 seconds (simple modulo check)
+      if (timeRemaining % 20 === 0) {
+        const { currentLevel, levels, player } = get();
+        const levelIndex = levels.findIndex(l => l.id === currentLevel);
+        if (levelIndex !== -1) {
+          const updatedLevels = [...levels];
+          const level = updatedLevels[levelIndex];
+
+          // Cap the number of active tips on the map
+          const MAX_ACTIVE_TIPS = 5;
+          const activeTips = level.collectibles.filter(c => c.type === "tip" && !c.collected).length;
+
+          if (activeTips < MAX_ACTIVE_TIPS) {
+            // Pick a random tip id (may repeat; collection logic handles duplicates)
+            const randomTip = safetyTips[Math.floor(Math.random() * safetyTips.length)];
+
+            // Find a free spot similar to extinguisher spawn rules
+            const isPositionOccupied = (pos: { x: number; y: number }) => {
+              // Too close to player
+              const playerDistance = Math.sqrt(
+                Math.pow(player.position.x - pos.x, 2) +
+                Math.pow(player.position.y - pos.y, 2)
+              );
+              if (playerDistance < 2) return true;
+
+              // Obstacles
+              for (const obstacle of level.obstacles) {
+                if (
+                  pos.x >= obstacle.x &&
+                  pos.x < obstacle.x + obstacle.width &&
+                  pos.y >= obstacle.y &&
+                  pos.y < obstacle.y + obstacle.height
+                ) {
+                  return true;
+                }
+              }
+
+              // Active fires
+              for (const hazard of level.hazards) {
+                if (!hazard.extinguished) {
+                  const hazardDistance = Math.sqrt(
+                    Math.pow(hazard.x - pos.x, 2) +
+                    Math.pow(hazard.y - pos.y, 2)
+                  );
+                  if (hazardDistance < 2) return true;
+                }
+              }
+
+              // Existing collectibles
+              for (const collectible of level.collectibles) {
+                if (!collectible.collected) {
+                  const collectibleDistance = Math.sqrt(
+                    Math.pow(collectible.x - pos.x, 2) +
+                    Math.pow(collectible.y - pos.y, 2)
+                  );
+                  if (collectibleDistance < 1.5) return true;
+                }
+              }
+
+              // Exit proximity
+              const exitDistance = Math.sqrt(
+                Math.pow(level.exitPosition.x - pos.x, 2) +
+                Math.pow(level.exitPosition.y - pos.y, 2)
+              );
+              if (exitDistance < 2) return true;
+
+              return false;
+            };
+
+            let attempts = 0;
+            let newPosition: { x: number; y: number } | undefined;
+            do {
+              newPosition = {
+                x: Math.floor(Math.random() * (level.mapWidth - 2)) + 1,
+                y: Math.floor(Math.random() * (level.mapHeight - 2)) + 1,
+              };
+              attempts++;
+            } while (attempts < 50 && isPositionOccupied(newPosition));
+
+            if (attempts < 50 && newPosition) {
+              const newTip: CollectibleItem = {
+                id: `tip_spawn_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                x: newPosition.x,
+                y: newPosition.y,
+                type: "tip",
+                collected: false,
+                tipId: randomTip.id,
+              };
+
+              level.collectibles.push(newTip);
+              set({ levels: updatedLevels });
+
+              // Reuse notification system
+              get().showExtinguisherNotification("💡 A safety tip has randomly spawned on the map");
+              setTimeout(() => {
+                set({ showNotification: false, notificationMessage: "" });
+              }, 3000);
+            }
+          }
+        }
       }
 
       set({ timeRemaining: timeRemaining - 1 });

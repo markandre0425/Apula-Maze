@@ -9,6 +9,7 @@ import LevelSelect from "./pages/LevelSelect";
 import GameOver from "./pages/GameOver";
 import SafetyGuide from "./pages/SafetyGuide";
 import QuizPage from "./pages/QuizPage";
+import Tutorial from "./pages/Tutorial";
 import NotFound from "./pages/not-found";
 import { useAudio } from "./lib/stores/useAudio";
 import { useScreenSize } from "./hooks/use-screen-size";
@@ -115,6 +116,7 @@ function App() {
             <Route path="/game-over" element={<GameOver />} />
             <Route path="/safety-guide" element={<SafetyGuide />} />
             <Route path="/quiz" element={<QuizPage />} />
+            <Route path="/tutorial" element={<Tutorial />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster position="top-center" />

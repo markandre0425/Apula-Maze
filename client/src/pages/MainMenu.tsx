@@ -109,6 +109,16 @@ const MainMenu: React.FC = () => {
             </Button>
           </Link>
           
+          <Link to="/tutorial" className="w-full">
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="w-full text-base sm:text-lg h-12 sm:h-14 border-blue-500 text-blue-700 hover:bg-blue-100 dark:text-blue-300 dark:hover:bg-blue-950"
+            >
+              📚 Tutorial
+            </Button>
+          </Link>
+          
           <Link to="/safety-guide" className="w-full">
             <Button 
               size="lg" 
