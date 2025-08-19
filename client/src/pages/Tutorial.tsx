@@ -43,7 +43,7 @@ const Tutorial: React.FC = () => {
     },
     {
       title: "Extinguishing Fires",
-      content: "When you're close to a fire, press SPACEBAR to use your extinguisher. Make sure you have extinguishers in your inventory!",
+      content: "When you're close to a fire, press SPACEBAR / F to use your extinguisher. Make sure you have extinguishers in your inventory!",
       icon: <FireIcon className="h-12 w-12 text-orange-500" />,
       showControls: false
     },
