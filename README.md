@@ -62,6 +62,7 @@ npm run start
 
 ### Pages
 - **MainMenu**: Entry point with navigation options
+- **Tutorial**: Interactive guide for game mechanics and controls
 - **Game**: Main gameplay environment
 - **LevelSelect**: Interface for choosing game levels
 - **SafetyGuide**: Educational resource with collected safety tips
